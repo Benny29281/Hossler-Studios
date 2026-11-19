@@ -1,6 +1,7 @@
 'use client';
 
 import { ActionForm } from './client.jsx';
+import { homeSlides } from '../lib/images.mjs';
 
 const values = (form) => Object.fromEntries(form);
 
@@ -32,31 +33,18 @@ export function ProductForm({ item, groups }) {
   </ActionForm>;
 }
 
-export function VoucherForm({ item }) {
-  return <ActionForm action="admin.voucher" transform={(form) => ({ ...values(form), quota: form.get('quota') === '' ? null : form.get('quota') })}>
-    <div className="fields">
-      <label>Kode<input name="code" defaultValue={item?.code} readOnly={!!item} required /></label>
-      <label>Jenis diskon<select name="kind" defaultValue={item?.kind || 'percent'}><option value="percent">Persen</option><option value="fixed">Nominal IDR</option></select></label>
-      <label>Nilai<input name="value" type="number" min="1" defaultValue={item?.value} required /></label>
-      <label>Minimum belanja<input name="min" type="number" min="0" defaultValue={item?.min_purchase || 0} required /></label>
-      <label>Berlaku sejak<input name="starts" type="date" defaultValue={item?.starts} /></label>
-      <label>Berlaku sampai<input name="ends" type="date" defaultValue={item?.ends} /></label>
-      <label>Kuota<input name="quota" type="number" min="0" defaultValue={item?.quota ?? ''} placeholder="Tanpa batas" /></label>
-    </div>
-    <button className="button" type="submit">Simpan voucher</button>
-  </ActionForm>;
-}
-
 export function SettingsForm({ settings }) {
+  const [firstSlide, secondSlide] = homeSlides(settings);
   const fields = [
-    ['name','Nama toko'], ['heroImage','Banner Home (URL gambar)'], ['heroTitle','Judul banner'],
-    ['heroDescription','Deskripsi banner'], ['originName','Nama pengirim'], ['originPhone','Telepon pengirim'],
+    ['name','Nama toko'], ['homeSlideOne','Foto Home pertama (URL gambar)',firstSlide.src],
+    ['homeSlideTwo','Foto Home kedua (URL gambar)',secondSlide.src], ['originName','Nama pengirim'], ['originPhone','Telepon pengirim'],
     ['originAddress','Alamat gudang'], ['originPostal','Kode pos gudang'], ['couriers','Kode kurir Biteship (pisahkan dengan koma)'],
     ['paymentMethods','Metode Snap (kosongkan untuk pengaturan akun Midtrans)'], ['instagram','URL Instagram'],
     ['adminEmail','Email notifikasi admin'], ['emailFooter','Catatan penutup email'],
   ];
   return <ActionForm action="admin.settings"><div className="fields">
-    {fields.map(([name, label]) => <label key={name}>{label}{['heroTitle','emailFooter'].includes(name) ?
-      <textarea name={name} defaultValue={settings[name]} rows={3} /> : <input name={name} defaultValue={settings[name]} />}</label>)}
+    {fields.map(([name, label, initial]) => <label key={name}>{label}{name === 'emailFooter' ?
+      <textarea name={name} defaultValue={settings[name]} rows={3} /> :
+      <input name={name} defaultValue={initial ?? settings[name]} required={name.startsWith('homeSlide')} />}</label>)}
   </div><button className="button" type="submit">Simpan pengaturan</button></ActionForm>;
 }

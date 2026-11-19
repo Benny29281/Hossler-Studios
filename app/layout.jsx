@@ -6,8 +6,8 @@ import { SiteFooter, SiteHeader, CookieNotice, Analytics } from '../components/c
 export const metadata = {
   metadataBase: new URL(process.env.APP_URL || 'http://localhost:3000'),
   title: { default: 'Hossler Studios — Independent Streetwear', template: '%s | Hossler Studios' },
-  description: 'Hossler Studios, brand streetwear independen. Temukan Ace of Hearts Tee, drop perdana kami.',
-  openGraph: { title: 'Hossler Studios', description: 'Independent streetwear · Ace of Hearts Tee', images: [aceTeeImage] },
+  description: "Hossler Studios, brand streetwear independen. Temukan Poker Tees'26, drop perdana kami.",
+  openGraph: { title: 'Hossler Studios', description: "Independent streetwear · Poker Tees'26", images: [aceTeeImage] },
   icons: { icon: '/icon.svg' },
 };
 

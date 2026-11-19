@@ -1,9 +1,33 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { ActionForm } from './client.jsx';
+import { useId, useState } from 'react';
+import { maxPasswordLength, minPasswordLength, newPasswordHint, newPasswordPattern } from '../lib/password-policy.mjs';
+import { ActionForm, Icon } from './client.jsx';
 import { AddressFields } from './address-fields.jsx';
+
+function PasswordField({ creating }) {
+  const id = useId();
+  const hintId = id + '-hint';
+  const [visible, setVisible] = useState(false);
+  return <div className="password-field">
+    <label htmlFor={id}>Kata sandi</label>
+    <div className="password-control">
+      <input id={id} name="password" type={visible ? 'text' : 'password'} required
+        autoComplete={creating ? 'new-password' : 'current-password'}
+        autoCapitalize="none" spellCheck={false}
+        minLength={minPasswordLength} maxLength={creating ? maxPasswordLength : 128}
+        pattern={creating ? newPasswordPattern : undefined} title={creating ? newPasswordHint : undefined}
+        aria-describedby={creating ? hintId : undefined}/>
+      <button className="icon password-toggle" type="button" aria-controls={id}
+        aria-label={visible ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+        onClick={() => setVisible((previous) => !previous)}>
+        <Icon name={visible ? 'eyeOff' : 'eye'} />
+      </button>
+    </div>
+    {creating && <p id={hintId} className="password-hint">{newPasswordHint}</p>}
+  </div>;
+}
 
 export function Login({ mode, reset, checkout }) {
   const register = mode === 'register';
@@ -15,7 +39,7 @@ export function Login({ mode, reset, checkout }) {
       {register && <label>Nama<input name="name" autoComplete="name" required maxLength={100}/></label>}
       {!reset && <label>Email<input type="email" name="email" autoComplete="email" required/></label>}
       {reset && <input type="hidden" name="code" value={reset}/>}
-      {!recovery && <label>Kata sandi<input type="password" name="password" minLength={10} maxLength={128} required autoComplete={reset || register ? 'new-password' : 'current-password'}/></label>}
+      {!recovery && <PasswordField creating={!!reset || register}/>}
       <button className="button wide" type="submit">{reset ? 'Simpan kata sandi' : recovery ? 'Kirim tautan pemulihan' : register ? 'Daftar' : 'Masuk'}</button>
     </ActionForm>
     <div className="cluster">

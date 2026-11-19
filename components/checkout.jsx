@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActionForm, rupiah, send } from './client.jsx';
 import { AddressFields } from './address-fields.jsx';
 
@@ -12,21 +12,12 @@ export function Checkout({ items, user, addresses, demo }) {
   const [postal, setPostal] = useState('');
   const [options, setOptions] = useState([]);
   const [selected, setSelected] = useState(0);
-  const [voucher, setVoucher] = useState('');
-  const [discount, setDiscount] = useState(0);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
   const idempotency = useRef('');
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const courier = options[selected];
   const savedAddress = addresses.find(({ id }) => id === addressId)?.details;
-  useEffect(() => {
-    const code = sessionStorage.getItem('hs_voucher');
-    if (code) {
-      setVoucher(code);
-      send('voucher', { code }).then((result) => setDiscount(result.discount), (error) => setFeedback(error.message));
-    }
-  }, []);
   async function submit(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -41,10 +32,9 @@ export function Checkout({ items, user, addresses, demo }) {
       }
       idempotency.current ||= crypto.randomUUID();
       const { id } = await send('checkout', {
-        requestId: idempotency.current, email: user?.email || form.get('email'), address, voucher,
+        requestId: idempotency.current, email: user?.email || form.get('email'), address,
         company: courier.company, service: courier.type, cost: courier.cost,
       });
-      sessionStorage.removeItem('hs_voucher');
       router.push('/orders/' + id + '?new=1');
       router.refresh();
     } catch (error) { setFeedback(error.message); }
@@ -79,11 +69,8 @@ export function Checkout({ items, user, addresses, demo }) {
     <fieldset className="panel summary" disabled={busy}><h2>Ringkasan pesanan</h2>
       {items.map((item) => <p className="spread" key={item.id}><span>{item.name} · {item.size} × {item.qty}</span><strong>{rupiah(item.price * item.qty)}</strong></p>)}
       <p className="spread"><span>Subtotal</span><strong>{rupiah(subtotal)}</strong></p>
-      {voucher && <p className="spread"><span>Voucher {voucher} <button type="button" className="plain" onClick={() => {
-        setVoucher(''); setDiscount(0); sessionStorage.removeItem('hs_voucher');
-      }}>Hapus</button></span><strong>−{rupiah(discount)}</strong></p>}
       <p className="spread"><span>Ongkir</span><strong>{courier ? rupiah(courier.cost) : '—'}</strong></p>
-      <div className="rule spread"><b>Total</b><b>{rupiah(subtotal + (courier?.cost || 0) - discount)}</b></div>
+      <div className="rule spread"><b>Total</b><b>{rupiah(subtotal + (courier?.cost || 0))}</b></div>
       <p className="muted">Pilih QRIS, e-wallet, virtual account, atau kartu dari halaman pembayaran Midtrans sesuai metode yang aktif.</p>
       {feedback && <p className="feedback bad" role="alert">{feedback}</p>}
       <button className="button wide" disabled={!courier || busy} type="submit" value="order">{busy ? 'Memproses…' : 'Buat pesanan'}</button>

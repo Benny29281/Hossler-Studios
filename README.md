@@ -10,7 +10,7 @@ Copy-Item .env.example .env.local
 npm.cmd run dev
 ```
 
-Buka `http://localhost:3000`. Ace of Hearts Tee seharga Rp219.000 mendapat stok demo 10 per ukuran (S, M, L, dan XL) saat penyiapan PGlite lokal. Stok ini diberikan sekali dan pengaturan stok produksi dilakukan melalui admin.
+Buka `http://localhost:3000`. Poker Tees'26 seharga Rp219.000 mendapat stok demo 10 per ukuran (S, M, L, dan XL) saat penyiapan PGlite lokal. Stok ini diberikan sekali dan pengaturan stok produksi dilakukan melalui admin.
 
 Untuk membuat akun admin, isi `ADMIN_EMAIL` dan `ADMIN_PASSWORD` (minimal 12 karakter) di `.env.local`. Jalankan `npm.cmd run db:init` sebelum menyalakan server, lalu masuk melalui `/account` dan buka `/admin`. Perintah inisialisasi dapat dijalankan ulang dan mempertahankan data yang sudah ada. Simpan file konfigurasi lokal di luar version control.
 
@@ -29,4 +29,4 @@ Pembeli tamu dapat membuka riwayat dan detail pesanan dari browser tempat checko
 
 ## Visual produk
 
-Gambar utama `public/images/ace-of-hearts.webp` dan potongan detail `public/images/ace-of-hearts-detail.webp` berasal dari PDF desain yang diberikan untuk Ace of Hearts Tee. Jalankan `npm.cmd run db:init` untuk memperbarui referensi gambar bawaan pada basis data lama.
+Gambar utama `public/images/ace-of-hearts.webp` dan potongan detail `public/images/ace-of-hearts-detail.webp` berasal dari PDF desain yang diberikan untuk Poker Tees'26. Jalankan `npm.cmd run db:init` untuk memperbarui data bawaan pada basis data lama.

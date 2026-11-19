@@ -2,18 +2,19 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Admin } from '../../components/admin.jsx';
 import { Login, Profile } from '../../components/account.jsx';
-import { AddToCart, CartControls, ProductGallery, Voucher } from '../../components/client.jsx';
+import { AddToCart, CartControls, ProductGallery } from '../../components/client.jsx';
 import { Checkout, Payment, Print } from '../../components/checkout.jsx';
-import { first, rows } from '../../lib/db.mjs';
-import { aceTeeAlt, aceTeeImage } from '../../lib/images.mjs';
+import { HomeSlideshow } from '../../components/home-slideshow.jsx';
+import { journeySlug, publicPagePath } from '../../lib/content.mjs';
+import { rows } from '../../lib/db.mjs';
+import { aceTeeImage, homeSlides, hosslerLogo } from '../../lib/images.mjs';
 import { demoPayment, shippingDemo } from '../../lib/providers.mjs';
-import { cart, collections, date, identity, money, ownedOrder, productImages, products, statuses, store } from '../../lib/shop.mjs';
+import { cart, collections, contentPage, date, identity, money, ownedOrder, productImages, products, statuses, store } from '../../lib/shop.mjs';
 
 export const dynamic = 'force-dynamic';
 const hasStock = ({ variants }) => variants.some(({ stock }) => stock > 0);
 const total = (items) => items.reduce((sum, { price, qty }) => sum + price * qty, 0);
 const productUrl = (slug) => '/products/' + slug;
-const homeLink = (list) => list[0] ? productUrl(list[0].slug) : '/products';
 
 function Badge({ item }) {
   if (!hasStock(item)) return <span className="badge">Sold Out</span>;
@@ -30,34 +31,6 @@ function Card({ item }) {
     <div className="card-copy"><Link href={productUrl(item.slug)}>{item.name}</Link><strong>{money(item.price)}</strong></div>
     {item.category && <p>{item.category}</p>}
   </article>;
-}
-
-function Home({ settings, list }) {
-  const featured = list[0];
-  return <>
-    <section className="hero" aria-labelledby="hero-title">
-      <div className="hero-copy">
-        <p className="eyebrow"><span className="red">♥</span> KOLEKSI PERDANA</p>
-        <h1 id="hero-title">{settings.heroTitle.split('\n').map((line, i) => <span key={i}>{line}</span>)}</h1>
-        <p className="hero-description">{settings.heroDescription}</p>
-        <Link className="button red-button" href={homeLink(list)}>Shop Now</Link>
-      </div>
-      <div className={settings.heroImage === aceTeeImage ? 'hero-image hero-image-product' : 'hero-image'}>
-        <img src={settings.heroImage} alt={settings.heroImage === aceTeeImage ? aceTeeAlt : 'Banner ' + settings.name} fetchPriority="high" width="1200" height="1200" />
-      </div>
-    </section>
-    <section className="shell section">
-      <div className="section-heading"><div><p className="eyebrow red">HOSSLER STUDIOS</p><h2>New Arrivals<span className="red">.</span></h2></div><Link className="text-link" href="/products">Lihat semua produk</Link></div>
-      {featured ? <div className="drop-grid">
-        <Card item={featured} />
-        <Link href={productUrl(featured.slug)} className="feature" aria-label={'Lihat detail ' + featured.name}>
-          <img src={productImages(featured)[1] || productImages(featured)[0]} alt={'Detail ' + featured.name} loading="lazy" width="608" height="608"/>
-          <div><span className="eyebrow">DETAIL DESAIN</span><strong>ACE OF HEARTS</strong></div>
-        </Link>
-      </div> : <p>Produk baru akan tersedia segera.</p>}
-    </section>
-    <section className="community"><div className="shell section-heading"><div><p className="eyebrow">HOSSLER STUDIOS</p><h2>Community.</h2></div><Link className="button secondary" href="/pages/community">Lihat komunitas</Link></div></section>
-  </>;
 }
 
 function Listing({ list, groups, filter, group }) {
@@ -118,12 +91,13 @@ function Cart({ items }) {
   const subtotal = total(items);
   return <section className="shell section"><h1>Keranjang<span className="red">.</span></h1>
     <div className="two-column"><div>{items.map((item) => <article className="cart-row" key={item.id}>
-      <Link href={productUrl(item.slug)}><img src={item.image || aceTeeImage} alt={item.name} width="112" height="124"/></Link>
+      <Link className="cart-row-photo" href={productUrl(item.slug)}><img src={item.image || aceTeeImage} alt={item.name} width="112" height="124"/></Link>
       <div><Link className="text-link" href={productUrl(item.slug)}>{item.name}</Link><p>Ukuran {item.size} · {money(item.price)}</p>
-        {(!item.available || item.stock < item.qty) && <p className="red">Jumlah ini tidak tersedia.</p>}
-        <CartControls item={item}/></div><strong>{money(item.price * item.qty)}</strong>
+        {(!item.available || item.stock < item.qty) && <p className="red">Jumlah ini tidak tersedia.</p>}</div>
+      <strong>{money(item.price * item.qty)}</strong>
+      <CartControls item={item}/>
     </article>)}</div>
-    <aside className="panel summary"><h2>Ringkasan</h2><p className="spread"><span>Subtotal</span><strong>{money(subtotal)}</strong></p><Voucher subtotal={subtotal} />
+    <aside className="panel summary"><h2>Ringkasan</h2><p className="spread"><span>Subtotal</span><strong>{money(subtotal)}</strong></p>
       <p className="muted">Ongkir dihitung saat checkout.</p>{available && <Link className="button wide" href="/checkout">Checkout</Link>}</aside></div>
   </section>;
 }
@@ -170,17 +144,22 @@ const simpleTitles = { products: 'All Products', collections: 'Collections', car
 
 export async function generateMetadata({ params }) {
   const [root, slug] = (await params).path ?? [];
+  if (!root) return {
+    title: { absolute: 'Hossler Studios' },
+    description: 'Toko resmi Hossler Studios dan koleksi Poker Tees\'26.',
+    alternates: { canonical: '/' },
+    openGraph: { title: 'Hossler Studios', description: 'Toko resmi Hossler Studios.', images: [hosslerLogo] },
+  };
   if (root === 'products' && slug) {
     const item = (await products()).find((item) => item.slug === slug);
     if (item) return { title: item.name, description: item.seo || item.description,
       alternates: { canonical: productUrl(slug) }, openGraph: { title: item.name, description: item.seo || item.description, images: [productImages(item)[0]] } };
   }
   if (root === 'pages' && slug) {
-    const content = await first('SELECT title FROM pages WHERE slug=$1', [slug]);
-    if (content) return { title: content.title, alternates: { canonical: '/pages/' + slug } };
+    const content = await contentPage(slug);
+    if (content) return { title: content.title, alternates: { canonical: publicPagePath(content.slug) } };
   }
   if (root) return { title: simpleTitles[root] || 'Hossler Studios', ...(!['products', 'collections'].includes(root) && { robots: { index: false, follow: false } }) };
-  return { alternates: { canonical: '/' } };
 }
 
 export default async function Page({ params, searchParams }) {
@@ -188,10 +167,7 @@ export default async function Page({ params, searchParams }) {
   const [root, slug] = path;
   const query = await searchParams;
   if (path.length > 2) notFound();
-  if (!root) {
-    const [settings, list] = await Promise.all([store(), products()]);
-    return <Home settings={settings} list={list}/>;
-  }
+  if (!root) return <HomeSlideshow slides={homeSlides(await store())} />;
   if (root === 'products') {
     const list = await products();
     if (!slug) return <Listing list={list} groups={await collections()} filter={query}/>;
@@ -207,10 +183,10 @@ export default async function Page({ params, searchParams }) {
     return <Listing list={await products()} groups={groups} filter={query} group={group}/>;
   }
   if (root === 'pages' && slug) {
-    const page = await first('SELECT * FROM pages WHERE slug=$1', [slug]);
+    const page = await contentPage(slug);
     if (!page) notFound();
     return <article className="shell section prose"><h1>{page.title}<span className="red">.</span></h1><p>{page.content}</p>
-      {slug === 'community' && <img src={aceTeeImage} alt={aceTeeAlt} width="1200" height="1200" loading="lazy"/>}
+      {slug === journeySlug && <img className="journey-visual" src="/images/our-journey.webp" alt="Hossler Fucking Studios" width="1280" height="800" />}
     </article>;
   }
   if (!['cart', 'checkout', 'orders', 'account', 'admin'].includes(root) || (slug && root !== 'orders' && root !== 'admin')) notFound();

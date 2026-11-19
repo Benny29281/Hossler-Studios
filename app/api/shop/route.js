@@ -4,14 +4,14 @@ import { authenticate, logout, requestReset, resetPassword } from '../../../lib/
 import { adminAction } from '../../../lib/admin.mjs';
 import { digest } from '../../../lib/crypto.mjs';
 import { db, first, rows } from '../../../lib/db.mjs';
-import { checkout, checkoutRates, paymentLink, simulatePayment, voucherDiscount } from '../../../lib/orders.mjs';
+import { checkout, checkoutRates, paymentLink, simulatePayment } from '../../../lib/orders.mjs';
 import { verifyAddressRegion } from '../../../lib/regions.mjs';
 import { cart, fail, identity, limit } from '../../../lib/shop.mjs';
-import { address, code, email, integer, optional, password, postal, str, uuid } from '../../../lib/validation.mjs';
+import { address, email, integer, loginPassword, newPassword, optional, postal, str, uuid } from '../../../lib/validation.mjs';
 
 const checkoutInput = z.object({
   address, email, requestId: uuid, company: str(50), service: str(100), cost: integer(10_000_000),
-  voucher: code.or(z.literal('')).default(''),
+  voucher: optional(32),
 });
 
 async function execute(action, data, actor) {
@@ -40,10 +40,6 @@ async function execute(action, data, actor) {
         return { cart: await cart(actor.owner, connection) };
       });
     }
-    case 'voucher': {
-      const items = await cart(actor.owner);
-      return { discount: await voucherDiscount(code.parse(data.code), items.reduce((sum, item) => sum + item.price * item.qty, 0)) };
-    }
     case 'rates':
       await limit('shipping:' + actor.owner, 35, 300);
       return { rates: await checkoutRates(actor.owner, postal.parse(data.postal)) };
@@ -60,18 +56,24 @@ async function execute(action, data, actor) {
       await simulatePayment(uuid.parse(data.id), actor);
       return {};
     case 'account.login':
-    case 'account.register':
-      await authenticate(actor, z.object({ email, password, name: action.endsWith('register') ? str(100) : optional(100) }).parse(data), action.endsWith('register'));
+    case 'account.register': {
+      const register = action === 'account.register';
+      const input = z.object({ email, password: register ? newPassword : loginPassword,
+        name: register ? str(100) : optional(100) }).parse(data);
+      await authenticate(actor, input, register);
       return {};
+    }
     case 'account.logout':
       await logout();
       return {};
     case 'account.reset':
       await requestReset(email.parse(data.email));
       return { message: 'Jika email terdaftar, tautan pemulihan akan dikirim.' };
-    case 'account.new-password':
-      await resetPassword(z.string().regex(/^[a-f0-9]{64}$/).parse(data.code), password.parse(data.password));
+    case 'account.new-password': {
+      const { code, password } = z.object({ code: z.string().regex(/^[a-f0-9]{64}$/), password: newPassword }).parse(data);
+      await resetPassword(code, password);
       return {};
+    }
     case 'account.profile': {
       if (!userId) fail('Masuk terlebih dahulu.', 401);
       const profile = z.object({ name: str(100), phone: optional(24) }).parse(data);
@@ -126,7 +128,9 @@ export async function POST(request) {
   } catch (error) {
     if (error instanceof ZodError) {
       const issue = error.issues[0];
-      return Response.json({ error: 'Periksa kembali ' + (issue.path.join(' / ') || 'isi formulir') + '.' }, { status: 400 });
+      const message = issue.code === 'custom' && issue.path[0] === 'password'
+        ? issue.message : 'Periksa kembali ' + (issue.path.join(' / ') || 'isi formulir') + '.';
+      return Response.json({ error: message }, { status: 400 });
     }
     const status = Number.isInteger(error.status) && error.status >= 400 && error.status <= 599 ? error.status : 500;
     if (status === 500) console.error(error);

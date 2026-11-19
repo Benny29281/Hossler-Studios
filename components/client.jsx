@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { aceTeeImage } from '../lib/images.mjs';
+import { journeyPath, journeyTitle } from '../lib/content.mjs';
 
 export const rupiah = (amount) => 'Rp' + new Intl.NumberFormat('id-ID').format(amount);
 
@@ -27,13 +28,15 @@ export function Icon({ name, size = 20 }) {
     plus: <path d="M12 5v14M5 12h14"/>,
     minus: <path d="M5 12h14"/>,
     zoom: <><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5M7 10h6m-3-3v6"/></>,
+    eye: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/></>,
+    eyeOff: <><path d="m3 3 18 18M10.5 6.1c.5-.1 1-.1 1.5-.1 6.5 0 10 6 10 6a16 16 0 0 1-3 3.5m-3.2 2A10.8 10.8 0 0 1 12 18c-6.5 0-10-6-10-6a17 17 0 0 1 4-4.2"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
 const navigation = [
   ['/', 'Home'], ['/products?sort=new', 'New Arrivals'], ['/products', 'All Products'],
-  ['/collections', 'Collections'], ['/pages/community', 'Community'], ['/pages/about', 'About'],
+  ['/collections', 'Collections'], [journeyPath, journeyTitle], ['/pages/about', 'About'],
 ];
 
 export function SiteHeader({ items, account }) {
@@ -71,7 +74,7 @@ export function SiteHeader({ items, account }) {
 
 export function SiteFooter({ instagram }) {
   return <footer className="footer"><div className="shell footer-grid">
-    <div><Link href="/" className="wordmark">HOSSLER<span>STUDIOS</span><b aria-hidden="true">♥</b></Link><p>Independent streetwear.</p></div>
+    <div><Link href="/" className="wordmark">HOSSLER<span>STUDIOS</span><b aria-hidden="true">♥</b></Link><p>A Creative Studios Expressed Through A Garments</p></div>
     <nav aria-label="Informasi toko"><strong>Informasi</strong><Link href="/pages/size-guide">Panduan ukuran</Link><Link href="/pages/shipping-returns">Pengiriman & retur</Link><Link href="/pages/terms">Syarat & ketentuan</Link><Link href="/pages/privacy">Kebijakan privasi</Link>{instagram && <a href={instagram} target="_blank" rel="noreferrer">Instagram</a>}</nav>
     <div><strong>Newsletter</strong><p>Kabar tentang drop berikutnya.</p><ActionForm action="newsletter" className="newsletter"><input type="email" name="email" placeholder="Alamat email" aria-label="Alamat email" required/><button type="submit">Daftar</button></ActionForm></div>
     <small>© Hossler Studios</small>
@@ -126,27 +129,40 @@ export function AddToCart({ variants }) {
 }
 
 export function CartControls({ item }) {
-  return <ActionForm action="cart.update" className="cart-controls" transform={(form) => ({
-    id: item.id, qty: form.get('intent') === 'remove' ? 0 : Number(form.get('qty')),
-  })}>
-    <input type="number" name="qty" aria-label={'Jumlah ' + item.name + ' ukuran ' + item.size} min="1" max={Math.max(1, Math.min(item.stock, 99))} defaultValue={item.qty} required />
-    <button type="submit" name="intent" value="update">Perbarui</button>
-    <button type="submit" name="intent" value="remove" formNoValidate>Hapus</button>
-  </ActionForm>;
-}
+  const router = useRouter();
+  const [sending, setSending] = useState(false);
+  const [refreshing, refresh] = useTransition();
+  const [error, setError] = useState('');
+  const busy = sending || refreshing;
+  const limit = item.available ? Math.min(item.stock, 99) : 0;
+  const label = item.name + ' ukuran ' + item.size;
 
-export function Voucher({ subtotal, editable = true }) {
-  const [code, setCode] = useState('');
-  const [discount, setDiscount] = useState(0);
-  useEffect(() => { setCode(sessionStorage.getItem('hs_voucher') || ''); }, []);
-  useEffect(() => { setDiscount(0); }, [subtotal, code]);
-  if (!editable) return <p>{code ? 'Voucher: ' + code : ''}</p>;
-  return <><ActionForm action="voucher" onSuccess={(result) => {
-    sessionStorage.setItem('hs_voucher', code.trim().toUpperCase());
-    setDiscount(result.discount);
-  }}><label>Kode voucher<input name="code" value={code} onChange={(event) => { setCode(event.target.value); sessionStorage.removeItem('hs_voucher'); }} required maxLength={32} /></label><button className="button secondary" type="submit">Terapkan</button></ActionForm>
-    {discount > 0 && <p className="spread"><span>Estimasi setelah diskon</span><strong>{rupiah(subtotal - discount)}</strong></p>}
-  </>;
+  async function update(qty) {
+    if (busy) return;
+    setSending(true);
+    setError('');
+    try {
+      await send('cart.update', { id: item.id, qty });
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      refresh(() => router.refresh());
+      setSending(false);
+    }
+  }
+
+  return <div className="cart-controls" aria-busy={busy}>
+    <div className="cart-stepper" role="group" aria-label={'Jumlah ' + label}>
+      <button className="icon" type="button" aria-label={'Kurangi jumlah ' + label} disabled={busy || item.qty <= 1 || limit < 1}
+        onClick={() => update(Math.min(item.qty - 1, limit))}><Icon name="minus" size={16}/></button>
+      <output aria-label={'Jumlah ' + label}>{item.qty}</output>
+      <button className="icon" type="button" aria-label={'Tambah jumlah ' + label} disabled={busy || item.qty >= limit}
+        onClick={() => update(item.qty + 1)}><Icon name="plus" size={16}/></button>
+    </div>
+    <button className="cart-remove" type="button" aria-label={'Hapus ' + label + ' dari keranjang'} disabled={busy}
+      onClick={() => update(0)}>Hapus</button>
+    {error && <p className="feedback bad" role="alert">{error}</p>}
+  </div>;
 }
 
 export function CookieNotice() {

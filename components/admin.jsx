@@ -4,11 +4,11 @@ import { adminCustomers, reports } from '../lib/admin.mjs';
 import { rows } from '../lib/db.mjs';
 import { collections, date, money, pages, products, statuses, store } from '../lib/shop.mjs';
 import { ActionForm } from './client.jsx';
-import { ProductForm, SettingsForm, VoucherForm } from './admin-forms.jsx';
+import { ProductForm, SettingsForm } from './admin-forms.jsx';
 
 const tabs = {
   orders: 'Pesanan', products: 'Produk', collections: 'Koleksi', customers: 'Pelanggan',
-  vouchers: 'Voucher', content: 'Konten', reports: 'Laporan', settings: 'Pengaturan',
+  content: 'Konten', reports: 'Laporan', settings: 'Pengaturan',
 };
 
 function Id({ id }) {
@@ -74,13 +74,6 @@ async function Customers() {
   </>;
 }
 
-async function Vouchers() {
-  const vouchers = await rows(`SELECT *,to_char(starts_at AT TIME ZONE 'Asia/Jakarta','YYYY-MM-DD') AS starts,
-    to_char(ends_at AT TIME ZONE 'Asia/Jakarta','YYYY-MM-DD') AS ends FROM vouchers ORDER BY code`);
-  return <><details className="admin-detail"><summary>Tambah voucher</summary><VoucherForm/></details>
-    {vouchers.map((item) => <details className="admin-detail" key={item.code}><summary>{item.code} · {item.reserved} terpakai / direservasi</summary><VoucherForm item={item}/></details>)}</>;
-}
-
 async function Content() {
   return <><p>Ubah banner Home dari tab <Link className="text-link" href="/admin/settings">Pengaturan</Link>.</p>
     {(await pages()).map((page) => <details className="admin-detail" key={page.slug}><summary>{page.title}</summary>
@@ -104,7 +97,7 @@ async function Reports() {
 export async function Admin({ tab, filter }) {
   if (!Object.hasOwn(tabs, tab)) notFound();
   const views = { orders: <Orders filter={filter}/>, products: <Products/>, collections: <Collections/>,
-    customers: <Customers/>, vouchers: <Vouchers/>, content: <Content/>, reports: <Reports/> };
+    customers: <Customers/>, content: <Content/>, reports: <Reports/> };
   return <section className="shell section admin"><h1>Dashboard<span className="red">.</span></h1>
     <nav aria-label="Menu admin" className="admin-nav">{Object.entries(tabs).map(([key, label]) => <Link key={key}
       href={'/admin/' + key} aria-current={key === tab ? 'page' : undefined}>{label}</Link>)}</nav>
